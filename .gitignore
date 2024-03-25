@@ -1,0 +1,11 @@
+/.build
+/barman_cloud_exporter
+/.release
+/.tarballs
+
+*.tar.gz
+*.test
+*-stamp
+.idea
+*.iml
+/vendor
