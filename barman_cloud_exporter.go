@@ -2,7 +2,10 @@ package main
 
 import (
 	"barman_cloud_exporter/collector"
+	"bytes"
 	"context"
+	"encoding/csv"
+	"fmt"
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -21,6 +24,22 @@ import (
 )
 
 func main() {
+
+	var buf []byte
+	buf, _ = collector.ReadTailOfFile("/tmp/test.txt", 150)
+
+	reader := csv.NewReader(bytes.NewBuffer(buf))
+	records, _ := reader.ReadAll()
+
+	for _, record := range records {
+		fmt.Println(record)
+		//x, err := strconv.Atoi(record[2])
+		//if err != nil {
+		//	panic(err)
+		//}
+
+	}
+	return
 	var (
 		webConfig   = webflag.AddFlags(kingpin.CommandLine, ":61092")
 		metricsPath = kingpin.Flag("web.telemetry-path",
