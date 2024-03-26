@@ -3,7 +3,6 @@ package collector
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -124,18 +123,18 @@ func (w *BarmanCloudWal) Scrape(ch chan<- prometheus.Metric, logger log.Logger) 
 		return errors.New("No values in wal TSV file: " + w.WalLogFile)
 	}
 
-	// Find time closest to an hour ago and iterate wals, to see if any failed
+	// Find time closest to an hour ago and iterate WALs, to see if any failed
 	failuresLastHr := 0
 	now := time.Now()
 	then := now.Add(time.Hour)
 
 	for _, r := range cloudWalRecords {
-		failuresLastHr = 1
-		if r.timestamp >= then.Unix() {
-			fmt.Println(r)
+		if r.timestamp < then.Unix() {
+			continue
 		}
+
+		failuresLastHr += r.success // Success is 0, failure is 1
 	}
-	// TODO
 
 	// Take last record in slice for the latest metrics
 	latestWalRecord := cloudWalRecords[len(cloudWalRecords)-1]

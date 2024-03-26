@@ -2,10 +2,11 @@ module barman_cloud_exporter
 
 go 1.21
 
+toolchain go1.22.1
+
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/go-kit/log v0.2.1
-	github.com/google/go-cmp v0.6.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/common v0.51.0
 	github.com/prometheus/exporter-toolkit v0.11.0
@@ -17,7 +18,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
