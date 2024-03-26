@@ -5,6 +5,13 @@ import (
 	"os"
 )
 
+const (
+	tailBufSize = 1000
+	newLine     = '\n'
+)
+
+// ReadTailOfFile Read only the tail of the file, given the desired buffer size
+// and ensure we start after a newline
 func ReadTailOfFile(fname string, tailBufSize int64) ([]byte, error) {
 	file, err := os.Open(fname)
 	if err != nil {
@@ -18,17 +25,16 @@ func ReadTailOfFile(fname string, tailBufSize int64) ([]byte, error) {
 		panic(statErr)
 	}
 	start := stat.Size() - tailBufSize
+	if start < 0 {
+		start = 0
+	}
 	_, err = file.ReadAt(buf, start)
 
 	// Ensure we start on a new line
-	newLineIndex := bytes.IndexByte(buf, []byte("\r")[0])
+	newLineIndex := bytes.IndexByte(buf, newLine)
 	if newLineIndex != -1 && len(buf) > newLineIndex {
 		return buf[newLineIndex+1:], nil
 	}
 
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return buf, nil
+	return []byte{}, err
 }

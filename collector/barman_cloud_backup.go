@@ -1,9 +1,12 @@
 package collector
 
 import (
-	"fmt"
+	"bytes"
+	"errors"
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"strconv"
 )
 
 const (
@@ -29,26 +32,97 @@ var (
 	)
 )
 
-type BarmanCloudBackup struct{}
+type cloudBackupRecord struct {
+	timestamp      int64
+	bucketName     string
+	success        int
+	backupDuration int
+}
+
+type BarmanCloudBackup struct {
+	BackupLogFile string
+}
 
 // Name of the Scraper
-func (BarmanCloudBackup) Name() string {
+func (b *BarmanCloudBackup) Name() string {
 	return "barman_cloud_backup"
 }
 
 // Help describes the role of the Scraper.
-func (BarmanCloudBackup) Help() string {
+func (b *BarmanCloudBackup) Help() string {
 	return "Collect from Barman Cloud backup result"
 }
 
 // Scrape collects data from result files and sends it over channel as prometheus metric.
-func (BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logger) error {
-	fmt.Println("TODO get Backup data %v", ch)
-	bucketName := "helium-db-2a" // Sample
-	ch <- prometheus.MustNewConstMetric(backupLatestBytes, prometheus.GaugeValue, float64(1), bucketName)
-	ch <- prometheus.MustNewConstMetric(backupLatestProcessedTimestamp, prometheus.GaugeValue, float64(600), bucketName)
-	ch <- prometheus.MustNewConstMetric(backupLatestProcessedDuration, prometheus.GaugeValue, float64(6), bucketName)
+func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logger) error {
+	var buf []byte
+
+	buf, _ = ReadTailOfFile(b.BackupLogFile, tailBufSize)
+	reader := NewTsvReader(bytes.NewBuffer(buf))
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		panic(err)
+	}
+
+	// Log invalid TSV line as a warning
+	logInvalidTsv := func(lines []string) {
+		_ = level.Warn(logger).Log("msg", "Could not parse input backup TSV on line", "line", lines)
+	}
+
+	var cloudBackupRecords []cloudBackupRecord
+	for _, record := range records {
+		if len(record) <= 1 {
+			break
+		}
+
+		timestamp, err := strconv.Atoi(record[0])
+		if err != nil {
+			logInvalidTsv(record)
+			continue
+		}
+
+		success, err := strconv.Atoi(record[2])
+		if err != nil {
+			logInvalidTsv(record)
+			continue
+		}
+
+		backupDuration, err := strconv.Atoi(record[3])
+		if err != nil {
+			logInvalidTsv(record)
+			continue
+		}
+
+		cloudBackupRecords = append(cloudBackupRecords, cloudBackupRecord{
+			timestamp:      int64(timestamp),
+			bucketName:     record[1],
+			success:        success,
+			backupDuration: backupDuration,
+		})
+
+	}
+
+	if len(cloudBackupRecords) == 0 {
+		return errors.New("No values in backup TSV file: " + b.BackupLogFile)
+	}
+
+	// Take last record in slice for the latest metrics
+	latestBackupRecord := cloudBackupRecords[len(cloudBackupRecords)-1]
+	bucketName := latestBackupRecord.bucketName
+
+	// TODO Not available yet as it requires an additional cloud call
+	// Dummy value used
+	ch <- prometheus.MustNewConstMetric(backupLatestBytes, prometheus.GaugeValue,
+		float64(1000000), bucketName)
+
+	// Latest processed timestamp
+	ch <- prometheus.MustNewConstMetric(backupLatestProcessedTimestamp, prometheus.GaugeValue,
+		float64(latestBackupRecord.timestamp), bucketName)
+
+	// Latest processed backup - duration in seconds
+	ch <- prometheus.MustNewConstMetric(backupLatestProcessedDuration, prometheus.GaugeValue,
+		float64(latestBackupRecord.backupDuration), bucketName)
+
 	return nil
 }
-
-var _ Scraper = BarmanCloudBackup{}

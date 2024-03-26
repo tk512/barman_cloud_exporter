@@ -2,10 +2,7 @@ package main
 
 import (
 	"barman_cloud_exporter/collector"
-	"bytes"
 	"context"
-	"encoding/csv"
-	"fmt"
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -24,26 +21,33 @@ import (
 )
 
 func main() {
-
-	var buf []byte
-	buf, _ = collector.ReadTailOfFile("/tmp/test.txt", 150)
-
-	reader := csv.NewReader(bytes.NewBuffer(buf))
-	records, _ := reader.ReadAll()
-
-	for _, record := range records {
-		fmt.Println(record)
-		//x, err := strconv.Atoi(record[2])
-		//if err != nil {
-		//	panic(err)
-		//}
-
-	}
-	return
+	//
+	//var buf []byte
+	//buf, _ = collector.ReadTailOfFile("/tmp/test.txt", 250)
+	//
+	//reader := collector.NewTsvReader(bytes.NewBuffer(buf), 6)
+	//records, err := reader.ReadAll()
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//logInvalidCsv := func(line) {
+	//	_ = level.Info(logger).Log("msg", "Could not parse input TSV on line", line)
+	//
+	//}
+	//return
 	var (
 		webConfig   = webflag.AddFlags(kingpin.CommandLine, ":61092")
 		metricsPath = kingpin.Flag("web.telemetry-path",
 			"Path under which to expose metrics.").Default("/metrics").String()
+		walLogFile = kingpin.Flag(
+			"wallog.file",
+			"Path to the WAL log file to read TSV data from",
+		).Default("/var/log/postgresql/barman-cloud-exporter.wallog").String()
+		backupLogFile = kingpin.Flag(
+			"backuplog.file",
+			"Path to the backup log file to read TSV data from",
+		).Default("/var/log/postgresql/barman-cloud-exporter.backuplog").String()
 	)
 
 	promlogConfig := &promlog.Config{}
@@ -58,11 +62,12 @@ func main() {
 
 	prometheus.MustRegister(versioncollector.NewCollector("barman_cloud_exporter"))
 
-	var newScrapers = []collector.Scraper{
-		collector.BarmanCloudBackup{},
-		collector.BarmanCloudWal{},
+	var scrapers = []collector.Scraper{
+		&collector.BarmanCloudBackup{BackupLogFile: *backupLogFile},
+		&collector.BarmanCloudWal{WalLogFile: *walLogFile},
 	}
-	handlerFunc := newHandler(newScrapers, logger)
+
+	handlerFunc := newHandler(scrapers, logger)
 	http.Handle(*metricsPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
 
 	if *metricsPath != "/" && *metricsPath != "" {
@@ -96,8 +101,6 @@ func newHandler(scrapers []collector.Scraper, logger log.Logger) http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		_ = level.Debug(logger).Log("msg", "scraping barman_cloud")
 
-		// TODO increase scrape count
-
 		ctx := r.Context()
 		// If a timeout is configured via the Prometheus header, add it to the context.
 		if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
@@ -105,7 +108,6 @@ func newHandler(scrapers []collector.Scraper, logger log.Logger) http.HandlerFun
 			if err != nil {
 				_ = level.Error(logger).Log("msg", "Failed to parse timeout from header", "err", err)
 			} else {
-				// XXX TODO
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, time.Duration(timeoutSeconds*float64(time.Second)))
 				defer cancel()
