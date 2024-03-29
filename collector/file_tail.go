@@ -32,6 +32,12 @@ func ReadTailOfFile(fname string, tailBufSize int64) ([]byte, error) {
 
 	// Ensure we start on a new line
 	newLineIndex := bytes.IndexByte(buf, newLine)
+
+	// If only a single line, return entire buffer immediately
+	if newLineIndex+1 == int(stat.Size()) {
+		return buf, nil
+	}
+
 	if newLineIndex != -1 && len(buf) > newLineIndex {
 		return buf[newLineIndex+1:], nil
 	}
