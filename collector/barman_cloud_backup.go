@@ -18,17 +18,17 @@ var (
 	backupLatestBytes = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, backup, "latest_bytes"),
 		"Latest backup size in bytes",
-		[]string{"bucket_name"}, nil,
+		[]string{"bucket_name", "backup_id"}, nil,
 	)
 	backupLatestProcessedTimestamp = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, backup, "latest_timestamp_seconds"),
 		"Latest backup performed at timestamp",
-		[]string{"bucket_name"}, nil,
+		[]string{"bucket_name", "backup_id"}, nil,
 	)
 	backupLatestProcessedDuration = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, backup, "latest_processed_duration"),
 		"Latest backup performed duration in seconds",
-		[]string{"bucket_name"}, nil,
+		[]string{"bucket_name", "backup_id"}, nil,
 	)
 )
 
@@ -37,6 +37,8 @@ type cloudBackupRecord struct {
 	bucketName     string
 	success        int
 	backupDuration int
+	backupSize     int
+	backupId       string
 }
 
 type BarmanCloudBackup struct {
@@ -94,11 +96,19 @@ func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logge
 			continue
 		}
 
+		backupSize, err := strconv.Atoi(record[4])
+		if err != nil {
+			logInvalidTsv(record)
+			continue
+		}
+
 		cloudBackupRecords = append(cloudBackupRecords, cloudBackupRecord{
 			timestamp:      int64(timestamp),
 			bucketName:     record[1],
 			success:        success,
 			backupDuration: backupDuration,
+			backupSize:     backupSize,
+			backupId:       record[5],
 		})
 
 	}
@@ -109,20 +119,20 @@ func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logge
 
 	// Take last record in slice for the latest metrics
 	latestBackupRecord := cloudBackupRecords[len(cloudBackupRecords)-1]
+	latestBackupId := latestBackupRecord.backupId
 	bucketName := latestBackupRecord.bucketName
 
-	// TODO Not available yet as it requires an additional cloud call
-	// Dummy value used
+	// Backup size
 	ch <- prometheus.MustNewConstMetric(backupLatestBytes, prometheus.GaugeValue,
-		float64(1000000), bucketName)
+		float64(latestBackupRecord.backupSize), bucketName, latestBackupId)
 
 	// Latest processed timestamp
 	ch <- prometheus.MustNewConstMetric(backupLatestProcessedTimestamp, prometheus.GaugeValue,
-		float64(latestBackupRecord.timestamp), bucketName)
+		float64(latestBackupRecord.timestamp), bucketName, latestBackupId)
 
 	// Latest processed backup - duration in seconds
 	ch <- prometheus.MustNewConstMetric(backupLatestProcessedDuration, prometheus.GaugeValue,
-		float64(latestBackupRecord.backupDuration), bucketName)
+		float64(latestBackupRecord.backupDuration), bucketName, latestBackupId)
 
 	return nil
 }

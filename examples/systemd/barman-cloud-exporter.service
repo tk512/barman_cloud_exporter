@@ -1,0 +1,20 @@
+[Unit]
+Description=Barman Cloud Exporter for Prometheus
+Documentation=https://github.com/tk512/barman_cloud_exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="GOMAXPROCS=1"
+User=postgres
+Group=postgres
+ExecStart=/var/lib/postgresql/barman_cloud_exporter \
+  --wallog.file=/var/log/postgresql/barman-cloud-exporter.wallog \
+  --backuplog.file=/var/log/postgresql/barman-cloud-exporter.backuplog
+
+SyslogIdentifier=barman_cloud_exporter
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

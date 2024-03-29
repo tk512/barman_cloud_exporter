@@ -17,7 +17,7 @@ Requirements:
 
 ##### Single exporter mode
 
-TBD
+Only single exporter mode is available in this application. 
 
 On the prometheus side you can set a scrape config as follows
 
@@ -38,3 +38,7 @@ docker run -d \
   --network my-pg-network  \
   TBD
 ```
+
+## Using systemd
+
+See examples/systemd/README.md
