@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"errors"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -12,8 +11,6 @@ import (
 const (
 	namespace = "barman_cloud"
 )
-
-var errKeyNotFound = errors.New("key not found")
 
 // Exporter collects metrics from barman cloud output
 type Exporter struct {

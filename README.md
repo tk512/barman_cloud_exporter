@@ -15,7 +15,7 @@ Requirements:
 
 ### Running
 
-##### Single exporter mode
+##### Exporter mode
 
 Only single exporter mode is available in this application. 
 
