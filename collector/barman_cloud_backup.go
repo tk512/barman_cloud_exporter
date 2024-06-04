@@ -93,7 +93,7 @@ func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logge
 			continue
 		}
 
-		success := 0;
+		success := 0
 		if exit_code == 0 {
 			success = 1
 		}
