@@ -30,6 +30,9 @@ var (
 		"Latest backup performed duration in seconds",
 		[]string{"bucket_name", "backup_id"}, nil,
 	)
+	backupSuccess = prometheus.NewDesc(prometheus.BuildFQName(namespace, backup, "lastest_success"),
+		"Lasted backup status succesful (1) or not (0)",
+		[]string{"bucket_name", "backup_id"}, nil)
 )
 
 type cloudBackupRecord struct {
@@ -84,10 +87,15 @@ func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logge
 			continue
 		}
 
-		success, err := strconv.Atoi(record[2])
+		exit_code, err := strconv.Atoi(record[2])
 		if err != nil {
 			logInvalidTsv(record)
 			continue
+		}
+
+		success := 0;
+		if exit_code == 0 {
+			success = 1
 		}
 
 		backupDuration, err := strconv.Atoi(record[3])
@@ -133,6 +141,10 @@ func (b *BarmanCloudBackup) Scrape(ch chan<- prometheus.Metric, logger log.Logge
 	// Latest processed backup - duration in seconds
 	ch <- prometheus.MustNewConstMetric(backupLatestProcessedDuration, prometheus.GaugeValue,
 		float64(latestBackupRecord.backupDuration), bucketName, latestBackupId)
+
+	// Lastest process backup successful (1) or not (0)
+	ch <- prometheus.MustNewConstMetric(backupSuccess, prometheus.GaugeValue,
+		float64(latestBackupRecord.success), bucketName, latestBackupId)
 
 	return nil
 }
